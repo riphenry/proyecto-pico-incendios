@@ -1,0 +1,45 @@
+from machine import Pin, ADC
+import time
+import dht
+
+# Inicializar sensores y actuadores
+d = dht.DHT11(Pin(5))
+mq2_pin = ADC(Pin(26))
+led = Pin(25, Pin.OUT)
+buzzer = Pin(0, Pin.OUT)
+
+def read_mq2():
+    raw_value = mq2_pin.read_u16()
+    voltage = raw_value * (3.3 / 65535)
+    return raw_value, voltage
+
+def main():
+    while True:
+        # Leer DHT11
+        try:
+            d.measure()
+            temp = d.temperature()
+            hum = d.humidity()
+
+            print(f"Temperatura: {temp} C")
+            print(f"Humedad: {hum} %")
+
+        except Exception as e:
+            print("Error DHT11:", e)
+
+        # Leer MQ-2
+        raw_value, voltage = read_mq2()
+        print("MQ-2 Raw:", raw_value, "Voltaje:", voltage)
+
+        # Activar alarma
+        if voltage > 1.4:
+            led.high()
+            buzzer.high()
+        else:
+            led.low()
+            buzzer.low()
+
+        time.sleep(1)
+
+if _name_ == "_main_":
+    main()
