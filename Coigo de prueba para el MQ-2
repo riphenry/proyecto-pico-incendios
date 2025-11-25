@@ -1,0 +1,12 @@
+from machine import ADC, Pin
+import utime  # For timing functions
+
+# Define the Raspberry Pi Pico pin pin connected to the AO pin of the MQ2 gas sensor module
+AO_PIN = ADC(Pin(26))  # GPIO26 (ADC0) as an analog input pin
+
+while True:
+    gas_value = AO_PIN.read_u16()  # Read the analog value (0-65535)
+
+    print(gas_value)  # Print the analog value
+
+    utime.sleep(1)  # Add a small delay to avoid spamming the output
