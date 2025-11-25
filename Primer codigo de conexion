@@ -1,0 +1,29 @@
+#7/11/25
+#Primer codigo de conexion
+import time
+import network
+
+wlan = network.WLAN(network.STA_IF)
+wlan.active(True)
+wlan.connect('FABLAB ESAN', 'LaB2520FaB0106')
+
+max_wait = 10
+while max_wait > 0:
+    if wlan.status() < 0 or wlan.status() >= 3:
+        break
+    max_wait -= 1
+    print('Esperando conexion...')
+    time.sleep(1)
+
+if wlan.status() != 3:
+    raise RuntimeError('Fallo de conexión a la red')
+else:
+    print('Conectado!')
+    status = wlan.ifconfig()
+    print('IP =', status[0])
+
+import urequests
+r = urequests.get("http://www.google.com")
+print("pasamos informacion")
+print(r.content)
+r.close()
