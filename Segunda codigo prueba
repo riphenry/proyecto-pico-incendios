@@ -1,0 +1,26 @@
+from machine import Pin, ADC
+import time
+
+mq2_pin= ADC(Pin(26))
+led = Pin(25, Pin.OUT)
+buzzer= Pin(0, Pin.OUT)
+
+def read_mq2():
+    raw_value = mq2_pin.read_u16()
+    voltage = raw_value * (3.3/65535)
+    return raw_value, voltage
+
+def main():
+    while True:
+        raw_value, voltage = read_mq2()
+        print("raw value:", raw_value, "voltage:", voltage)
+        time.sleep(1)
+        if voltage > 1.4:
+            led.high()
+            buzzer.high()
+        else:
+            led.low()
+            buzzer.low()
+            
+if _name_ == "_main_":
+    main()
