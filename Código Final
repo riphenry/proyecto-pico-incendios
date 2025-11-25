@@ -1,0 +1,263 @@
+from machine import Pin, ADC
+import utime
+import dht
+
+# ---------------------
+# CONFIGURACIÓN DE SENSORES
+# ---------------------
+
+mq2 = ADC(Pin(26))               # Sensor de gas MQ2
+dht_sensor = dht.DHT11(Pin(15))  # Sensor DHT11
+buzzer = Pin(0, Pin.OUT)         # Buzzer
+
+# ---------------------
+# FUNCIÓN ALERTA BUZZER
+# ---------------------
+def activar_buzzer(duracion=0.3, repeticiones=4):
+    for _ in range(repeticiones):
+        buzzer.value(1)
+        utime.sleep(duracion)
+        buzzer.value(0)
+        utime.sleep(duracion)
+
+# ---------------------
+# BUCLE PRINCIPAL
+# ---------------------
+while True:
+    try:
+        # Lectura MQ2
+        gas_val = mq2.read_u16()
+        gas_level = gas_val >> 6  # 0–1023
+
+        # Lectura DHT11
+        dht_sensor.measure()
+        temp = dht_sensor.temperature()
+        hum = dht_sensor.humidity()
+
+        # Mostrar en consola
+        print("Gas:", gas_level, "| Temp:", temp, "°C | Humedad:", hum, "%")
+
+        # Condiciones de alerta
+        gas_alerta = gas_level > 200
+        temp_alerta = temp < 16 or temp > 30
+        hum_alerta = hum < 35 or hum > 75
+
+        if gas_alerta or temp_alerta or hum_alerta:
+            print("⚠️ Alerta ambiental activada")
+            activar_buzzer()
+
+    except Exception as e:
+        print("Error leyendo sensores:", e)
+
+    utime.sleep(2)
+
+
+============================================================================================================
+Versión mejorada:
+
+from machine import Pin, ADC
+import utime
+import dht
+
+# ---------------------
+# CONFIGURACIÓN DE SENSORES
+# ---------------------
+mq2 = ADC(Pin(26))               # Sensor de gas MQ2
+dht_sensor = dht.DHT11(Pin(15))  # Sensor DHT11
+buzzer = Pin(0, Pin.OUT)         # Buzzer
+
+# ---------------------
+# FUNCIÓN ALERTA BUZZER
+# ---------------------
+def activar_buzzer(duracion=0.2, repeticiones=3):
+    for _ in range(repeticiones):
+        buzzer.value(1)
+        utime.sleep(duracion)
+        buzzer.value(0)
+        utime.sleep(duracion)
+
+# ---------------------
+# UMBRALES
+# ---------------------
+UMBRAL_GAS = 150
+UMBRAL_TEMP_MIN = 16
+UMBRAL_TEMP_MAX = 30
+UMBRAL_HUM_MIN = 35
+UMBRAL_HUM_MAX = 75
+
+# ---------------------
+# BUCLE PRINCIPAL
+# ---------------------
+ultimo_dht = 0
+temp = 0
+hum = 0
+
+while True:
+    try:
+        # Lectura MQ2
+        gas_val = mq2.read_u16()
+        gas_level = gas_val >> 6  # 0–1023
+
+        # Lectura DHT11 (cada 2 segundos aprox.)
+        if utime.ticks_ms() - ultimo_dht > 2000:
+            dht_sensor.measure()
+            temp = dht_sensor.temperature()
+            hum = dht_sensor.humidity()
+            ultimo_dht = utime.ticks_ms()
+
+        # Mostrar SIEMPRE todos los valores
+        print("Gas:", gas_level, "| Temp:", temp, "°C | Humedad:", hum, "%")
+
+        # Lista de alertas activas
+        alertas = []
+
+        if gas_level > UMBRAL_GAS:
+            alertas.append(f"⚠️ Gas superó umbral: {gas_level}")
+
+        if temp < UMBRAL_TEMP_MIN or temp > UMBRAL_TEMP_MAX:
+            alertas.append(f"⚠️ Temperatura fuera de rango: {temp} °C")
+
+        if hum < UMBRAL_HUM_MIN or hum > UMBRAL_HUM_MAX:
+            alertas.append(f"⚠️ Humedad fuera de rango: {hum} %")
+
+        # Mostrar todas las alertas encontradas
+        if alertas:
+            for alerta in alertas:
+                print(alerta)
+            activar_buzzer()
+
+    except Exception as e:
+        print("Error leyendo sensores:", e)
+
+    utime.sleep_ms(200)  # ciclo rápido
+
+======================================================================================================
+VERSION 3 (DEF):
+
+from machine import Pin, ADC
+import utime
+import dht
+import network
+import time
+import urequests
+
+WIFI_SSID = "HONOR X6b"
+WIFI_PASSWORD = "coco1234"
+
+# Ubidots
+UBIDOTS_TOKEN = "BBUS-RBSORXLoyexPepIqru52ymFglSzb0q"
+DEVICE_LABEL = "humita"
+VARIABLE_LABEL = "MQ2"
+
+# ---------------------
+# CONFIGURACIÓN DE SENSORES
+# ---------------------
+mq2 = ADC(Pin(26))               # Sensor de gas MQ2
+dht_sensor = dht.DHT11(Pin(15))  # Sensor DHT11
+buzzer = Pin(0, Pin.OUT)         # Buzzer
+
+# ---------------------
+# FUNCIÓN ALERTA BUZZER
+# ---------------------
+def activar_buzzer(duracion=0.2, repeticiones=3):
+    for _ in range(repeticiones):
+        buzzer.value(1)
+        utime.sleep(duracion)
+        buzzer.value(0)
+        utime.sleep(duracion)
+
+# ---------------------
+# UMBRALES
+# ---------------------
+UMBRAL_GAS = 150
+UMBRAL_TEMP_MIN = 16
+UMBRAL_TEMP_MAX = 30
+UMBRAL_HUM_MIN = 35
+UMBRAL_HUM_MAX = 100
+
+# ---- FUNCIONES ----
+
+def conectar_wifi():
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+
+    print("Conectando a WiFi...")
+    while not wlan.isconnected():
+        print(".", end="")
+        time.sleep(1)
+
+    print("\nWiFi conectado!")
+    print("IP:", wlan.ifconfig()[0])
+
+
+def enviar_a_ubidots(gas, temp, hum):
+    url = f"https://stem.ubidots.com/api/v1.6/devices/{DEVICE_LABEL}"
+    headers = {
+        "X-Auth-Token": UBIDOTS_TOKEN,
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "gases": gas,
+        "temperatura": temp,
+       "humedad": hum,
+    }
+
+    print("Enviando a Ubidots:", payload)
+    try:
+        urequests.post(url, json=payload, headers=headers).close()
+        print("data enviada\n")
+    except:
+        print("Error al enviar a Ubidots\n")
+
+
+
+# ---------------------
+# BUCLE PRINCIPAL
+# ---------------------
+ultimo_dht = 0
+temp = 0
+hum = 0
+conectar_wifi()
+
+while True:
+    try:
+        # Lectura MQ2
+        gas_val = mq2.read_u16()
+        gas_level = gas_val >> 6  # 0–1023
+
+        # Lectura DHT11 (cada 2 segundos aprox.)
+        if utime.ticks_ms() - ultimo_dht > 2000:
+            dht_sensor.measure()
+            temp = dht_sensor.temperature()
+            hum = dht_sensor.humidity()
+            ultimo_dht = utime.ticks_ms()
+
+        # Mostrar SIEMPRE todos los valores
+        print("Gas:", gas_level, "| Temp:", temp, "°C | Humedad:", hum, "%")
+
+        # Lista de alertas activas
+        alertas = []
+
+        if gas_level > UMBRAL_GAS:
+            alertas.append(f"⚠️ Gas superó umbral: {gas_level}")
+
+        if temp < UMBRAL_TEMP_MIN or temp > UMBRAL_TEMP_MAX:
+            alertas.append(f"⚠️ Temperatura fuera de rango: {temp} °C")
+
+        if hum < UMBRAL_HUM_MIN or hum > UMBRAL_HUM_MAX:
+            alertas.append(f"⚠️ Humedad fuera de rango: {hum} %")
+
+        # Mostrar todas las alertas encontradas
+        if alertas:
+            for alerta in alertas:
+                print(alerta)
+            activar_buzzer()
+            enviar_a_ubidots(gas_level, temp, hum)
+
+    except Exception as e:
+        print("Error leyendo sensores:", e)
+
+    utime.sleep_ms(200)  # ciclo rápido
+
